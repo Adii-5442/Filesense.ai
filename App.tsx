@@ -1,28 +1,27 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
+ * FileSense.AI - Main App Component
+ * AI-powered file organization made simple
  *
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import React from 'react';
+import { StatusBar, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppNavigator } from './src/navigation/AppNavigator';
+import { Colors } from './src/constants/theme';
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
+function App(): JSX.Element {
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NewAppScreen templateFileName="App.tsx" />
-    </View>
+    <SafeAreaProvider>
+      <StatusBar 
+        backgroundColor={Colors.background} 
+        barStyle="dark-content" 
+        translucent={false}
+      />
+      <AppNavigator />
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
