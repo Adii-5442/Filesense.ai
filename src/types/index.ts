@@ -30,6 +30,9 @@ export interface AppSettings {
 
 export interface NavigationParams {
   Home: undefined;
+  Auth: undefined;
+  OtpVerification: { phoneNumber: string; verificationId: string };
+  ProfileSetup: { phoneNumber: string };
   FileSelector: undefined;
   Processing: { files: FileItem[] };
   Results: { files: FileItem[] };

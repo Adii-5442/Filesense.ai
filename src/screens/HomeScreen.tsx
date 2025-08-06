@@ -7,18 +7,19 @@ import {
   SafeAreaView,
   Image,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { Header, ActionButton } from '../components';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../constants/theme';
 import { APP_CONFIG } from '../constants';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HomeScreenProps {
   navigation: any; // TODO: Type this properly with navigation types
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const [monthlyUsage, setMonthlyUsage] = useState(5); // This will come from backend
-  const [isPremium, setIsPremium] = useState(false); // This will come from backend
+  const { user, isAuthenticated, isGuest, signOut } = useAuth();
 
   const features = [
     {
@@ -42,9 +43,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       description: 'Organize multiple files simultaneously',
     },
   ];
+      description: 'Smart filename suggestions based on content analysis',
+    },
+    {
+      icon: '📱',
+      title: 'On-Device OCR',
+      description: 'Extract text from images without cloud dependency',
+    },
+    {
+      icon: '📄',
+      title: 'PDF Support',
+      description: 'Process and organize PDF documents intelligently',
+    },
+    {
+      icon: '⚡',
+      title: 'Batch Processing',
+      description: 'Organize multiple files simultaneously',
+    },
+  ];
 
   const handleStartProcessing = () => {
-    navigation.navigate('FileSelector');
+    if (isGuest) {
+      Alert.alert(
+        'Limited Access',
+        'As a guest, you can process up to 5 files. Sign up for unlimited processing.',
+        [
+          { text: 'Continue as Guest', onPress: () => navigation.navigate('FileSelector') },
+          { text: 'Sign Up', onPress: () => navigation.navigate('Auth') },
+        ]
+      );
+    } else {
+      navigation.navigate('FileSelector');
+    }
   };
 
   const handleViewResults = () => {
@@ -55,12 +85,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('Settings');
   };
 
+  const handleSignIn = () => {
+    navigation.navigate('Auth');
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            navigation.navigate('Auth');
+          },
+        },
+      ]
+    );
+  };
+
   const getRemainingFiles = () => {
-    return isPremium ? '∞' : (APP_CONFIG.freeMonthlyLimit - monthlyUsage).toString();
+    if (isGuest) return '5';
+    if (!user) return '0';
+    return user.role === 'premium' ? '∞' : (user.monthlyLimit - user.filesProcessedThisMonth).toString();
   };
 
   const getUsagePercentage = () => {
-    return isPremium ? 0 : (monthlyUsage / APP_CONFIG.freeMonthlyLimit) * 100;
+    if (isGuest) return 0;
+    if (!user || user.role === 'premium') return 0;
+    return (user.filesProcessedThisMonth / user.monthlyLimit) * 100;
+  };
+
+  const getAccountType = () => {
+    if (isGuest) return 'Guest';
+    if (!user) return 'Unknown';
+    return user.role === 'premium' ? 'Premium' : 'Free';
+  };
+
+  const getFilesProcessed = () => {
+    if (isGuest) return 0;
+    return user?.filesProcessedThisMonth || 0;
   };
 
   return (
@@ -69,8 +136,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         title={APP_CONFIG.name}
         subtitle={APP_CONFIG.description}
         rightComponent={
-          <TouchableOpacity onPress={handleSettings}>
-            <Text style={styles.settingsIcon}>⚙️</Text>
+          <TouchableOpacity onPress={isAuthenticated ? handleSettings : handleSignIn}>
+            <Text style={styles.settingsIcon}>{isAuthenticated ? '⚙️' : '👤'}</Text>
           </TouchableOpacity>
         }
       />
@@ -92,14 +159,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <View style={styles.statsCard}>
           <View style={styles.statsHeader}>
             <Text style={styles.statsTitle}>
-              {isPremium ? 'Premium Plan' : 'Free Plan'}
+              {getAccountType()} {isGuest ? 'User' : 'Plan'}
             </Text>
             <Text style={styles.statsSubtitle}>
-              Files processed this month: {monthlyUsage}
+              Files processed this month: {getFilesProcessed()}
             </Text>
           </View>
           
-          {!isPremium && (
+          {!isAuthenticated && (
+            <View style={styles.guestNotice}>
+              <Text style={styles.guestNoticeText}>
+                🎯 Sign up for unlimited processing and cloud storage!
+              </Text>
+              <TouchableOpacity style={styles.signUpButton} onPress={handleSignIn}>
+                <Text style={styles.signUpText}>Sign Up Now</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {(isGuest || (user && user.role !== 'premium')) && (
             <>
               <View style={styles.progressContainer}>
                 <View style={styles.progressBar}>
@@ -113,12 +191,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <Text style={styles.progressText}>{getRemainingFiles()} left</Text>
               </View>
               
-              {monthlyUsage >= APP_CONFIG.freeMonthlyLimit * 0.8 && (
+              {user && user.filesProcessedThisMonth >= user.monthlyLimit * 0.8 && (
                 <TouchableOpacity style={styles.upgradeButton}>
                   <Text style={styles.upgradeText}>Upgrade to Premium</Text>
                 </TouchableOpacity>
               )}
             </>
+          )}
+
+          {isAuthenticated && (
+            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -274,6 +358,45 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
     fontWeight: '600',
   },
+  guestNotice: {
+    backgroundColor: Colors.primaryLight + '20',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  guestNoticeText: {
+    ...Typography.body2,
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  signUpButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    alignSelf: 'center',
+  },
+  signUpText: {
+    ...Typography.caption,
+    color: Colors.textDark,
+    fontWeight: '600',
+  },
+  signOutButton: {
+    backgroundColor: Colors.error + '20',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    alignSelf: 'flex-end',
+    marginTop: Spacing.sm,
+  },
+  signOutText: {
+    ...Typography.caption,
+    color: Colors.error,
+    fontWeight: '600',
+  },
 
   // Actions Section
   actionsSection: {
@@ -359,4 +482,5 @@ const styles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 20,
   },
+});
 });
