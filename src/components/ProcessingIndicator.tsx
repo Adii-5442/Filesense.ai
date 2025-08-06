@@ -23,7 +23,11 @@ export const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
 
   useEffect(() => {
     if (status.stage === 'idle' || status.stage === 'complete') {
-      Animated.timing(rotateAnim).stop();
+      Animated.timing(rotateAnim, {
+        toValue: 0,
+        duration: 0,
+        useNativeDriver: true
+      }).stop();
       return;
     }
 
@@ -112,7 +116,7 @@ export const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={[styles.iconContainer, { backgroundColor: getStatusColor() }]}>
-          {status.stage !== 'idle' && status.stage !== 'complete' && status.stage !== 'error' ? (
+          {status.stage === 'extracting' || status.stage === 'analyzing' || status.stage === 'renaming' ? (
             <Animated.View style={{ transform: [{ rotate: spin }] }}>
               <Text style={styles.iconText}>🔄</Text>
             </Animated.View>
